@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI SkillSwap — Simple</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f2f2f7;
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #222;
+  }
+  h1 { text-align: center; }
+  .box {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  label { display: block; margin-top: 10px; font-weight: bold; font-size: 14px; }
+  input, select {
+    width: 100%;
+    padding: 6px;
+    margin-top: 4px;
+    box-sizing: border-box;
+  }
+  button {
+    margin-top: 14px;
+    background: #007aff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover { background: #005ecb; }
+  .student { border-bottom: 1px solid #eee; padding: 8px 0; }
+  .match { padding: 6px 0; }
+  .score { color: #007aff; font-weight: bold; }
+  .reasons { font-size: 12px; color: #666; margin-left: 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+const API = "http://localhost:8000";
+
+function App() {
+  const [name, setName] = useState("");
+  const [teach, setTeach] = useState("");
+  const [teachLevel, setTeachLevel] = useState("intermediate");
+  const [learn, setLearn] = useState("");
+  const [learnLevel, setLearnLevel] = useState("beginner");
+  const [availability, setAvailability] = useState("weekend");
+
+  const [students, setStudents] = useState([]);
+  const [matches, setMatches] = useState(null);
+
+  const loadStudents = () => {
+    fetch(`${API}/students`).then(r => r.json()).then(d => setStudents(d.students));
+  };
+
+  useEffect(() => { loadStudents(); }, []);
+
+  const addStudent = async () => {
+    if (!name || !teach || !learn) return;
+    await fetch(`${API}/students`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name, teach, teach_level: teachLevel,
+        learn, learn_level: learnLevel,
+        availability: [availability]
+      })
+    });
+    setName(""); setTeach(""); setLearn("");
+    loadStudents();
+  };
+
+  const runMatch = async () => {
+    const res = await fetch(`${API}/match`).then(r => r.json());
+    setMatches(res.matches);
+  };
+
+  return (
+    <div>
+      <h1>🎓 AI SkillSwap</h1>
+
+      <div className="box">
+        <h3>Add a student</h3>
+        <label>Name</label>
+        <input value={name} onChange={e => setName(e.target.value)} />
+
+        <label>Can teach</label>
+        <input value={teach} onChange={e => setTeach(e.target.value)} placeholder="e.g. Guitar" />
+        <select value={teachLevel} onChange={e => setTeachLevel(e.target.value)}>
+          <option>beginner</option>
+          <option>intermediate</option>
+          <option>advanced</option>
+        </select>
+
+        <label>Wants to learn</label>
+        <input value={learn} onChange={e => setLearn(e.target.value)} placeholder="e.g. Python" />
+        <select value={learnLevel} onChange={e => setLearnLevel(e.target.value)}>
+          <option>beginner</option>
+          <option>intermediate</option>
+          <option>advanced</option>
+        </select>
+
+        <label>Availability</label>
+        <select value={availability} onChange={e => setAvailability(e.target.value)}>
+          <option value="weekday-evening">weekday-evening</option>
+          <option value="weekend">weekend</option>
+        </select>
+
+        <button onClick={addStudent}>Add student</button>
+      </div>
+
+      <div className="box">
+        <h3>Students ({students.length})</h3>
+        {students.map((s, i) => (
+          <div className="student" key={i}>
+            <b>{s.name}</b> — teaches {s.teach} ({s.teach_level}), wants {s.learn} ({s.learn_level})
+          </div>
+        ))}
+      </div>
+
+      <div className="box">
+        <h3>AI Matching</h3>
+        <button onClick={runMatch}>Run matching</button>
+        {matches && matches.map((m, i) => (
+          <div key={i} className="match">
+            <b>{m.learner}</b> wants <i>{m.wants}</i>:
+            {m.candidates.length === 0 && <div>No teacher found.</div>}
+            {m.candidates.map((c, j) => (
+              <div key={j}>
+                {j + 1}. {c.teacher} — <span className="score">{c.score}</span>
+                <div className="reasons">{c.reasons.join(" · ")}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
